@@ -1,0 +1,1 @@
+"""Hiring Agent application package."""
