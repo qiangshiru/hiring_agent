@@ -47,6 +47,15 @@ class Settings(BaseSettings):
     milvus_password: SecretStr = Field(default=SecretStr(""))
     milvus_collection: str = Field(default="candidate_embeddings", min_length=1)
 
+    jd_parser_mode: Literal["rule", "llm", "hybrid"] = "rule"
+    jd_parser_cache_ttl_seconds: int = Field(default=3600, ge=0)
+    jd_parser_llm_max_retries: int = Field(default=2, ge=0, le=5)
+    jd_parser_known_tech_stacks: list[str] = Field(default_factory=list)
+    jd_parser_bonus_hints: list[str] = Field(default_factory=list)
+    jd_parser_must_hints: list[str] = Field(default_factory=list)
+    jd_parser_education_terms: list[str] = Field(default_factory=list)
+    jd_parser_city_terms: list[str] = Field(default_factory=list)
+
     @field_validator("backend_cors_origins", mode="before")
     @classmethod
     def parse_cors_origins(cls, value: object) -> list[str]:
@@ -63,6 +72,30 @@ class Settings(BaseSettings):
         if isinstance(value, list):
             return [str(origin) for origin in value]
         raise ValueError("backend_cors_origins must be a list or comma-separated string")
+
+    @field_validator(
+        "jd_parser_known_tech_stacks",
+        "jd_parser_bonus_hints",
+        "jd_parser_must_hints",
+        "jd_parser_education_terms",
+        "jd_parser_city_terms",
+        mode="before",
+    )
+    @classmethod
+    def parse_string_list(cls, value: object) -> list[str]:
+        if value is None or value == "":
+            return []
+        if isinstance(value, str):
+            stripped_value = value.strip()
+            if stripped_value.startswith("["):
+                parsed_value = json.loads(stripped_value)
+                if not isinstance(parsed_value, list):
+                    raise ValueError("JSON value must be a list")
+                return [str(item) for item in parsed_value]
+            return [item.strip() for item in stripped_value.split(",") if item.strip()]
+        if isinstance(value, list):
+            return [str(item) for item in value]
+        raise ValueError("value must be a list or comma-separated string")
 
     @field_validator("llm_base_url", mode="before")
     @classmethod

@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from src.api.v1.jd import router as jd_router
 from src.config import Settings, get_settings
 from src.core.exceptions import (
     ApplicationError,
@@ -111,6 +112,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     api_router = APIRouter(prefix=resolved_settings.api_v1_prefix)
     api_router.include_router(create_health_router())
+    api_router.include_router(jd_router)
     app.include_router(api_router)
 
     @app.get("/", include_in_schema=False)

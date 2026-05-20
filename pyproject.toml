@@ -12,6 +12,7 @@ alembic = "^1.13.3"
 asyncpg = "^0.30.0"
 fastapi = "^0.115.6"
 greenlet = "^3.1.1"
+langgraph = "^0.2.60"
 pydantic = { extras = ["email"], version = "^2.10.4" }
 pydantic-settings = "^2.7.0"
 python-json-logger = "^3.2.1"
@@ -36,7 +37,7 @@ build-backend = "poetry.core.masonry.api"
 asyncio_mode = "auto"
 testpaths = ["tests"]
 pythonpath = ["."]
-addopts = "-ra --strict-markers --strict-config"
+addopts = "-ra --strict-markers --strict-config --cov=src --cov-report=term-missing --cov-fail-under=80"
 
 [tool.ruff]
 line-length = 100
