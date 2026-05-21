@@ -1,7 +1,7 @@
 import asyncio
 import hashlib
 from collections.abc import Mapping
-from typing import Protocol, cast
+from typing import Protocol, cast, TypeVar, Optional
 
 from redis.asyncio import Redis
 
@@ -17,6 +17,7 @@ from src.services.jd_parser.extractors import (
 from src.services.jd_parser.prompts import build_jd_parser_prompt, jd_parser_json_schema
 
 logger = get_logger(__name__)
+T = TypeVar("T")
 
 
 class LLMClient(Protocol):
@@ -31,7 +32,7 @@ class LLMClient(Protocol):
 
 
 class JDParseCache(Protocol):
-    async def get(self, key: str) -> JDParseResult | None:
+    async def get(self, key: str) -> Optional[JDParseResult]:
         raise NotImplementedError
 
     async def set(self, key: str, value: JDParseResult, ttl_seconds: int) -> None:
@@ -39,7 +40,7 @@ class JDParseCache(Protocol):
 
 
 class NullJDParseCache:
-    async def get(self, key: str) -> JDParseResult | None:
+    async def get(self, key: str) -> Optional[JDParseResult]:
         return None
 
     async def set(self, key: str, value: JDParseResult, ttl_seconds: int) -> None:
@@ -50,7 +51,7 @@ class RedisJDParseCache:
     def __init__(self, redis_url: str) -> None:
         self._redis = Redis.from_url(redis_url, decode_responses=True)
 
-    async def get(self, key: str) -> JDParseResult | None:
+    async def get(self, key: str) -> Optional[JDParseResult]:
         try:
             cached_value = await self._redis.get(key)
             if cached_value is None:
@@ -77,10 +78,10 @@ class JDParserService:
     def __init__(
         self,
         *,
-        settings: Settings | None = None,
-        extractors: Mapping[str, BaseExtractor[object]] | None = None,
-        llm_client: LLMClient | None = None,
-        cache: JDParseCache | None = None,
+        settings: Optional[Settings] = None,
+        extractors: Optional[Mapping[str, BaseExtractor[object]]] = None,
+        llm_client: Optional[LLMClient] = None,
+        cache: Optional[JDParseCache] = None,
     ) -> None:
         self._settings = settings or get_settings()
         self._extractors = dict(extractors or default_extractors())
@@ -88,6 +89,18 @@ class JDParserService:
         self._cache = cache if cache is not None else RedisJDParseCache(self._settings.redis_url)
 
     def parse(self, text: str, *, use_cache: bool = True) -> JDParseResult:
+        """解析 JD 文本为结构化数据。
+        
+        Args:
+            text: JD 文本内容
+            use_cache: 是否使用缓存
+        
+        Returns:
+            解析后的 JDParseResult 对象
+        
+        Raises:
+            ApplicationError: JD 文本为空或解析失败
+        """
         try:
             running_loop = asyncio.get_running_loop()
         except RuntimeError:
@@ -97,6 +110,7 @@ class JDParserService:
         return asyncio.run(self.parse_async(text, use_cache=use_cache))
 
     async def parse_async(self, text: str, *, use_cache: bool = True) -> JDParseResult:
+        """异步解析 JD 文本。"""
         result, _ = await self.parse_with_cache_status_async(text, use_cache=use_cache)
         return result
 
@@ -114,6 +128,10 @@ class JDParserService:
         if use_cache:
             cached_result = await self._cache.get(cache_key)
             if cached_result is not None:
+                logger.info(
+                    "jd_parse_cache_hit",
+                    cache_key=cache_key[:16],
+                )
                 return cached_result, True
 
         result = self._parse_with_rules(normalized_text)
@@ -122,9 +140,15 @@ class JDParserService:
 
         if use_cache:
             await self._cache.set(cache_key, result, self._settings.jd_parser_cache_ttl_seconds)
+            logger.info(
+                "jd_parse_cache_miss",
+                cache_key=cache_key[:16],
+                mode=self._settings.jd_parser_mode,
+            )
         return result, False
 
     def _parse_with_rules(self, text: str) -> JDParseResult:
+        """使用规则引擎解析 JD。"""
         context = ExtractionContext(text=text, settings=self._settings)
         return JDParseResult(
             学历=self._extract("education", context),
@@ -136,6 +160,7 @@ class JDParserService:
         )
 
     async def _merge_llm_result(self, text: str, rule_result: JDParseResult) -> JDParseResult:
+        """合并规则解析结果与 LLM 解析结果。"""
         if self._llm_client is None:
             if self._settings.jd_parser_mode == "llm":
                 raise ApplicationError("LLM client is not configured", status_code=503)
@@ -157,8 +182,10 @@ class JDParserService:
         )
 
     async def _call_llm_with_retry(self, text: str) -> JDParseResult:
+        """调用 LLM 并处理重试逻辑。"""
         prompt = build_jd_parser_prompt(text)
-        last_error: Exception | None = None
+        last_error: Optional[Exception] = None
+        
         for attempt in range(self._settings.jd_parser_llm_max_retries + 1):
             try:
                 assert self._llm_client is not None
@@ -170,20 +197,33 @@ class JDParserService:
                     ),
                     timeout=self._settings.llm_timeout_seconds,
                 )
-                return JDParseResult.model_validate(payload)
+                result = JDParseResult.model_validate(payload)
+                logger.info(
+                    "jd_parse_llm_success",
+                    attempt=attempt + 1,
+                    fields_extracted=len(result.model_dump()),
+                )
+                return result
             except Exception as exc:
                 last_error = exc
-                logger.warning("JD parser LLM attempt failed", extra={"attempt": attempt + 1})
+                logger.warning(
+                    "jd_parse_llm_failure",
+                    attempt=attempt + 1,
+                    error=str(exc),
+                )
+        
         raise ApplicationError(
             "JD parser LLM extraction failed",
             status_code=503,
             details={"reason": str(last_error) if last_error else "unknown"},
         )
 
-    def _extract[T](self, name: str, context: ExtractionContext) -> T:
+    def _extract(self, name: str, context: ExtractionContext) -> T:
+        """执行字段提取。"""
         extractor = self._extractors[name]
         return cast(T, extractor.extract(context))
 
     def _build_cache_key(self, text: str) -> str:
+        """构建缓存键。"""
         digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
         return f"jd_parser:{self._settings.jd_parser_mode}:{digest}"
