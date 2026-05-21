@@ -1,73 +1,39 @@
+version: '3.8'
+
 services:
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: hiring_agent
-      POSTGRES_PASSWORD: hiring_agent
-      POSTGRES_DB: hiring_agent
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
-      - "5432:5432"
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=INFO
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ./src:/app/src
+      - ./tests:/app/tests
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U hiring_agent -d hiring_agent"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - hiring-network
 
-  redis:
-    image: redis:7-alpine
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     ports:
-      - "6379:6379"
-    command: ["redis-server", "--appendonly", "yes"]
-    volumes:
-      - redis_data:/data
-
-  etcd:
-    image: quay.io/coreos/etcd:v3.5.16
+      - "3000:3000"
     environment:
-      ETCD_AUTO_COMPACTION_MODE: revision
-      ETCD_AUTO_COMPACTION_RETENTION: "1000"
-      ETCD_QUOTA_BACKEND_BYTES: "4294967296"
-      ETCD_SNAPSHOT_COUNT: "50000"
-    command: >
-      etcd
-      -advertise-client-urls=http://127.0.0.1:2379
-      -listen-client-urls=http://0.0.0.0:2379
-      --data-dir /etcd
-    volumes:
-      - etcd_data:/etcd
-
-  minio:
-    image: minio/minio:RELEASE.2024-12-18T13-15-44Z
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    command: ["server", "/minio_data", "--console-address", ":9001"]
-    volumes:
-      - minio_data:/minio_data
-
-  milvus:
-    image: milvusdb/milvus:v2.5.0
-    command: ["milvus", "run", "standalone"]
-    environment:
-      ETCD_ENDPOINTS: etcd:2379
-      MINIO_ADDRESS: minio:9000
-    ports:
-      - "19530:19530"
-      - "9091:9091"
+      - NEXT_PUBLIC_API_URL=http://api:8000
     depends_on:
-      - etcd
-      - minio
-    volumes:
-      - milvus_data:/var/lib/milvus
+      - api
+    networks:
+      - hiring-network
 
-volumes:
-  postgres_data:
-  redis_data:
-  etcd_data:
-  minio_data:
-  milvus_data:
+networks:
+  hiring-network:
+    driver: bridge
