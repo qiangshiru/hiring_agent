@@ -7,7 +7,7 @@ import { MultiAgentResult } from '@/types';
 export const MultiAgentPage: React.FC = () => {
   const { jd, resume, setMultiAgentResult } = useAppStore();
 
-  const { mutate, isLoading, data, error } = useMutation({
+  const { mutate, isPending: isLoading, data, error } = useMutation({
     mutationFn: () => multiAgentApi.evaluate(jd!, resume!),
     onSuccess: (result: MultiAgentResult) => {
       setMultiAgentResult(result);
@@ -237,3 +237,5 @@ export const MultiAgentPage: React.FC = () => {
     </div>
   );
 };
+
+export default MultiAgentPage;

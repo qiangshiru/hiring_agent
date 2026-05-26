@@ -8,7 +8,7 @@ export const QuestionsPage: React.FC = () => {
   const { jd, resume, setQuestions } = useAppStore();
   const [selectedType, setSelectedType] = useState<string>('all');
 
-  const { mutate, isLoading, data, error } = useMutation({
+  const { mutate, isPending: isLoading, data, error } = useMutation({
     mutationFn: () => questionsApi.generate(jd!, resume!),
     onSuccess: (result: QuestionGenerationResult) => {
       setQuestions(result);
@@ -161,3 +161,5 @@ export const QuestionsPage: React.FC = () => {
     </div>
   );
 };
+
+export default QuestionsPage;

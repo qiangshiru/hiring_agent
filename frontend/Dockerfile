@@ -1,9 +1,12 @@
 FROM node:18-alpine AS builder
 
+ARG API_PROXY_URL=http://api:8000
+ENV API_PROXY_URL=$API_PROXY_URL
+
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 COPY . .
 

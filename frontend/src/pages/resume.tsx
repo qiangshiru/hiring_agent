@@ -8,7 +8,7 @@ export const ResumePage: React.FC = () => {
   const [inputText, setInputText] = useState('');
   const { setResume } = useAppStore();
 
-  const { mutate, isLoading, data, error } = useMutation({
+  const { mutate, isPending: isLoading, data, error } = useMutation({
     mutationFn: resumeApi.parse,
     onSuccess: (result: ResumeParseResult) => {
       setResume(result);
@@ -141,3 +141,5 @@ export const ResumePage: React.FC = () => {
     </div>
   );
 };
+
+export default ResumePage;

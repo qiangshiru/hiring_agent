@@ -209,7 +209,7 @@ class QuestionGeneratorService:
         resumes: list[ResumeParseResult],
     ) -> list[QuestionGenerationResult]:
         """批量为多个简历生成问题。"""
-        logger.info("question_generation_batch_start", resumes_count=len(resumes))
+        logger.info("question_generation_batch_start", extra={"resumes_count": len(resumes)})
         results = [self.generate(jd, resume) for resume in resumes]
-        logger.info("question_generation_batch_complete", resumes_count=len(resumes))
+        logger.info("question_generation_batch_complete", extra={"resumes_count": len(resumes)})
         return results

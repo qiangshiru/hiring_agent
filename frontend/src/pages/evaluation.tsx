@@ -7,14 +7,14 @@ import { EvaluationResult, RiskDetectionResult, ResumeParseResult } from '@/type
 export const EvaluationPage: React.FC = () => {
   const { resume, setEvaluation, setRisks } = useAppStore();
 
-  const { mutate: evaluateMutate, isLoading: evaluateLoading, data: evaluation, error: evaluateError } = useMutation({
+  const { mutate: evaluateMutate, isPending: evaluateLoading, data: evaluation, error: evaluateError } = useMutation({
     mutationFn: evaluationApi.evaluate,
     onSuccess: (result: EvaluationResult) => {
       setEvaluation(result);
     },
   });
 
-  const { mutate: risksMutate, isLoading: risksLoading, data: risks, error: risksError } = useMutation({
+  const { mutate: risksMutate, isPending: risksLoading, data: risks, error: risksError } = useMutation({
     mutationFn: () => evaluationApi.detectRisks({}, resume as ResumeParseResult),
     onSuccess: (result: RiskDetectionResult) => {
       setRisks(result);
@@ -190,3 +190,5 @@ export const EvaluationPage: React.FC = () => {
     </div>
   );
 };
+
+export default EvaluationPage;

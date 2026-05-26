@@ -7,7 +7,7 @@ import { ScreeningResult } from '@/types';
 export const ScreeningPage: React.FC = () => {
   const { jd, resume, setScreeningResult } = useAppStore();
 
-  const { mutate, isLoading, data, error } = useMutation({
+  const { mutate, isPending: isLoading, data, error } = useMutation({
     mutationFn: () => screeningApi.screen(jd!, resume!),
     onSuccess: (result: ScreeningResult) => {
       setScreeningResult(result);
@@ -159,3 +159,5 @@ export const ScreeningPage: React.FC = () => {
     </div>
   );
 };
+
+export default ScreeningPage;

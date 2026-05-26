@@ -19,7 +19,7 @@ class InterviewConnectionManager:
 
     def disconnect(self, session_id: str):
         if session_id in self.active_connections:
-            del self.active_connections.pop(session_id, None)
+            del self.active_connections[session_id]
 
     async def send_message(self, session_id: str, message: dict):
         if session_id in self.active_connections:

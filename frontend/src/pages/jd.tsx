@@ -8,7 +8,7 @@ export const JDPage: React.FC = () => {
   const [inputText, setInputText] = useState('');
   const { setJD } = useAppStore();
 
-  const { mutate, isLoading, data, error } = useMutation({
+  const { mutate, isPending: isLoading, data, error } = useMutation({
     mutationFn: jdApi.parse,
     onSuccess: (result: JDParseResult) => {
       setJD(result);
@@ -116,3 +116,5 @@ export const JDPage: React.FC = () => {
     </div>
   );
 };
+
+export default JDPage;

@@ -9,6 +9,10 @@ from sqlalchemy import text
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from src.api.v1.jd import router as jd_router
+from src.api.v1.resume import router as resume_router
+from src.api.v1.questions import router as questions_router
+from src.api.v1.multi_agent import router as multi_agent_router
+from src.api.v1.interview_ws import router as interview_ws_router
 from src.config import Settings, get_settings
 from src.core.exceptions import (
     ApplicationError,
@@ -113,6 +117,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     api_router = APIRouter(prefix=resolved_settings.api_v1_prefix)
     api_router.include_router(create_health_router())
     api_router.include_router(jd_router)
+    api_router.include_router(resume_router)
+    api_router.include_router(questions_router)
+    api_router.include_router(multi_agent_router)
+    api_router.include_router(interview_ws_router)
     app.include_router(api_router)
 
     @app.get("/", include_in_schema=False)

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAppStore } from '@/store/appStore';
 import { Question } from '@/types';
 
-export const InterviewPage: React.FC = () => {
+const InterviewPage: React.FC = () => {
   const { questions } = useAppStore();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -144,3 +144,5 @@ export const InterviewPage: React.FC = () => {
     </div>
   );
 };
+
+export default InterviewPage;

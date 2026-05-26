@@ -1,7 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 
-export const HomePage: React.FC = () => {
+const HomePage: React.FC = () => {
   const features = [
     {
       title: 'JD 解析',
@@ -103,3 +103,5 @@ export const HomePage: React.FC = () => {
     </div>
   );
 };
+
+export default HomePage;

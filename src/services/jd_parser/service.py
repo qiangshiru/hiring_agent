@@ -130,7 +130,7 @@ class JDParserService:
             if cached_result is not None:
                 logger.info(
                     "jd_parse_cache_hit",
-                    cache_key=cache_key[:16],
+                    extra={"cache_key": cache_key[:16]},
                 )
                 return cached_result, True
 
@@ -142,8 +142,7 @@ class JDParserService:
             await self._cache.set(cache_key, result, self._settings.jd_parser_cache_ttl_seconds)
             logger.info(
                 "jd_parse_cache_miss",
-                cache_key=cache_key[:16],
-                mode=self._settings.jd_parser_mode,
+                extra={"cache_key": cache_key[:16], "mode": self._settings.jd_parser_mode},
             )
         return result, False
 

@@ -162,7 +162,7 @@ class ScreeningService:
         self._rules = [r for r in self._rules if r.rule_id != rule_id]
         removed = len(self._rules) < original_len
         if removed:
-            logger.info("rule_removed", rule_id=rule_id)
+            logger.info("rule_removed", extra={"rule_id": rule_id})
         return removed
 
     def get_rules(self) -> list[ScreeningRule]:
@@ -173,7 +173,7 @@ class ScreeningService:
         self, jd: JDParseResult, resumes: list[ResumeParseResult]
     ) -> list[ScreeningResult]:
         """批量筛选多个简历。"""
-        logger.info("screening_batch_start", resumes_count=len(resumes))
+        logger.info("screening_batch_start", extra={"resumes_count": len(resumes)})
         results = [self.screen(jd, resume) for resume in resumes]
-        logger.info("screening_batch_complete", resumes_count=len(resumes))
+        logger.info("screening_batch_complete", extra={"resumes_count": len(resumes)})
         return results

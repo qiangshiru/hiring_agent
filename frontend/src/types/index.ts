@@ -111,4 +111,5 @@ export interface MultiAgentResult {
   risk_agent_output: Record<string, unknown> | null;
   final_recommendation: string;
   agent_recommendations: Record<string, string>;
+  errors?: string[];
 }
