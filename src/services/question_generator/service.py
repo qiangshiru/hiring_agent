@@ -1,3 +1,10 @@
+"""面试问题生成服务。
+
+根据 JD 要求和候选人简历，自动生成多类型、多难度的面试问题。
+支持基础、项目、深挖、场景、权衡、失败、系统设计等 7 种问题类型，
+并提供按难度分布和类型分布的可配置生成策略，适用于批量生成和按需生成两种场景。
+"""
+
 import uuid
 from typing import Optional, Dict, Any
 
@@ -26,6 +33,12 @@ logger = get_logger(__name__)
 
 
 class QuestionGeneratorService:
+    """面试问题生成服务核心类。
+
+    根据 JD 和简历匹配生成面试问题，支持 7 种问题类型的独立生成器，
+    按配置分配各类型数量，并通过难度策略自动计算每类问题的难度等级。
+    """
+
     def __init__(
         self,
         config: Optional[QuestionGenerationConfig] = None,
@@ -122,7 +135,11 @@ class QuestionGeneratorService:
     def _adjust_difficulty_distribution(
         self, questions: list[Question], difficulty_counts: Dict[str, int]
     ) -> None:
-        """调整难度分布以符合配置目标。"""
+        """调整难度分布以符合配置目标。
+
+        当实际生成的各难度问题数量与目标分布不一致时，从未达标难度中
+        借用其他难度的问题进行调整，使最终分布趋近配置值。
+        """
         target_counts = {
             d.value: round(
                 self._config.total_questions * self._config.difficulty_distribution.get(d, 0)
@@ -202,7 +219,7 @@ class QuestionGeneratorService:
         jd: JDParseResult,
         resumes: list[ResumeParseResult],
     ) -> list[QuestionGenerationResult]:
-        """批量为多个简历生成问题。"""
+        """批量为多个候选人简历生成面试问题，适用于批量招聘场景。"""
         logger.info("question_generation_batch_start", extra={"resumes_count": len(resumes)})
         results = [self.generate(jd, resume) for resume in resumes]
         logger.info("question_generation_batch_complete", extra={"resumes_count": len(resumes)})

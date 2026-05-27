@@ -1,3 +1,10 @@
+"""简历解析服务。
+
+负责将各种格式的简历文件（PDF、Word 等）解析为结构化的候选人数据，
+提取姓名、联系方式、教育背景、工作经验、项目经验、技能等关键信息。
+支持基于文件的加载解析和纯文本解析两种模式，并提供缓存机制。
+"""
+
 import asyncio
 import hashlib
 import re
@@ -33,6 +40,8 @@ logger = get_logger(__name__)
 
 
 class ResumeParseCache(Protocol):
+    """简历解析结果缓存协议，定义缓存的读写接口。"""
+
     async def get(self, key: str) -> ResumeParseResult | None:
         raise NotImplementedError
 
@@ -41,6 +50,7 @@ class ResumeParseCache(Protocol):
 
 
 class NullResumeParseCache:
+    """空缓存实现（不使用缓存时回退到此实现）。"""
     async def get(self, key: str) -> ResumeParseResult | None:
         return None
 
@@ -49,6 +59,8 @@ class NullResumeParseCache:
 
 
 class RedisResumeParseCache:
+    """基于 Redis 的简历解析结果缓存实现。"""
+
     def __init__(self, redis_url: str) -> None:
         if not REDIS_AVAILABLE:
             raise ImportError("redis package is required for RedisJDParseCache")
@@ -78,6 +90,12 @@ class RedisResumeParseCache:
 
 
 class ResumeParserService:
+    """简历解析服务核心类。
+
+    负责加载简历文件、预处理文本，然后通过多个提取器分别提取
+    姓名、性别、年龄、联系方式、教育、工作经历、项目、技能、自我评价等字段。
+    """
+
     def __init__(
         self,
         *,
@@ -95,6 +113,15 @@ class ResumeParserService:
         self._skills_extractor = SkillsExtractor()
 
     def parse_resume(self, file_path: str | Path, *, use_cache: bool = True) -> ResumeParseResult:
+        """解析简历文件为结构化数据（同步包装器）。
+
+        Args:
+            file_path: 简历文件路径
+            use_cache: 是否使用缓存
+
+        Returns:
+            解析后的 ResumeParseResult 对象
+        """
         try:
             running_loop = asyncio.get_running_loop()
         except RuntimeError:
@@ -106,6 +133,7 @@ class ResumeParserService:
     async def parse_resume_async(
         self, file_path: str | Path, *, use_cache: bool = True
     ) -> ResumeParseResult:
+        """异步解析简历文件，加载文档后预处理并逐字段提取。"""
         path = Path(file_path) if isinstance(file_path, str) else file_path
         if not path.exists():
             raise ApplicationError(f"File not found: {file_path}", status_code=404)
@@ -143,6 +171,7 @@ class ResumeParserService:
         return result
 
     def parse_text(self, text: str, *, use_cache: bool = False) -> ResumeParseResult:
+        """解析纯文本简历内容（不经过文件加载步骤）。"""
         start_time = time.time()
         cleaned_text = self._preprocess(text)
 
@@ -163,6 +192,7 @@ class ResumeParserService:
         )
 
     def _load_document(self, path: Path) -> RawDocument:
+        """根据文件扩展名选择对应加载器读取文档内容。"""
         try:
             return self._loader_registry.load(path)
         except UnsupportedFormatError:
@@ -171,6 +201,7 @@ class ResumeParserService:
             raise ApplicationError(f"Failed to load document: {exc}", status_code=422)
 
     def _preprocess(self, text: str) -> str:
+        """文本预处理：统一换行符、压缩空格、合并多余空行。"""
         text = re.sub(r"\r\n", "\n", text)
         text = re.sub(r"[ \t]+", " ", text)
         text = re.sub(r"\n{3,}", "\n\n", text)
@@ -178,6 +209,7 @@ class ResumeParserService:
         return text
 
     def _extract_name(self, text: str) -> str | None:
+        """通过正则匹配提取候选人姓名（支持"姓名："标签、简历开头、独立行等格式）。"""
         patterns = [
             r"姓\s*名\s*[:：]?\s*([^\n,，]+)",
             r"([\u4e00-\u9fa5]{2,4})\s*(?:简历|CV|个人简历)",
@@ -192,6 +224,7 @@ class ResumeParserService:
         return None
 
     def _extract_gender(self, text: str) -> str | None:
+        """通过正则匹配提取性别信息。"""
         patterns = [
             r"性\s*别\s*[:：]\s*([男女])",
             r"(男|女)\s*生",
@@ -204,6 +237,7 @@ class ResumeParserService:
         return None
 
     def _extract_age(self, text: str) -> int | None:
+        """提取年龄，支持直接年龄标注或通过出生年份推算。"""
         patterns = [
             r"年\s*龄\s*[:：]\s*(\d+)",
             r"(\d{4})\s*年\s*生",
@@ -222,6 +256,7 @@ class ResumeParserService:
         return None
 
     def _extract_phone(self, text: str) -> str | None:
+        """提取手机号码（支持大陆手机号、+86 前缀、带分隔符等格式）。"""
         patterns = [
             r"1[3-9]\d[\s-]?\d{4}[\s-]?\d{4}",
             r"\+86[\s-]?1[3-9]\d[\s-]?\d{4}[\s-]?\d{4}",
@@ -236,6 +271,7 @@ class ResumeParserService:
         return None
 
     def _extract_email(self, text: str) -> str | None:
+        """通过标准邮箱正则提取邮箱地址。"""
         pattern = r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
         match = re.search(pattern, text)
         if match:
@@ -243,6 +279,7 @@ class ResumeParserService:
         return None
 
     def _extract_city(self, text: str) -> str | None:
+        """从文本前 500 个字符中匹配常见城市名称。"""
         common_cities = [
             "北京", "上海", "广州", "深圳", "杭州", "南京", "成都", "武汉",
             "西安", "苏州", "天津", "重庆", "厦门", "长沙", "郑州", "青岛",
@@ -253,6 +290,7 @@ class ResumeParserService:
         return None
 
     def _extract_self_evaluation(self, text: str) -> str | None:
+        """提取自我评价/个人简介段落，截取前 500 个字符。"""
         patterns = [
             r"(?:自我评价|个人评价|简介)(.*?)(?:\n\n|工作经历|项目经验|教育背景|$)",
             r"(?:About me|About|个人简介)(.*?)(?:\n\n|Experience|Project|$)",
@@ -266,6 +304,7 @@ class ResumeParserService:
         return None
 
     def _build_cache_key(self, file_path: str) -> str:
+        """构建缓存键，基于文件路径、修改时间和文件大小的哈希值。"""
         path = Path(file_path)
         if path.exists():
             file_stat = path.stat()

@@ -1,3 +1,10 @@
+"""简历初筛服务。
+
+基于 JD 要求和候选人简历执行多维度规则匹配，判断候选人是否满足职位的基本要求。
+筛选规则按优先级排序，包含必选规则和可选规则，最终输出通过/失败状态及置信度评分，
+支持规则的热添加和移除以及批量筛选。
+"""
+
 from typing import Protocol, Optional
 
 from src.core.logging import get_logger
@@ -10,6 +17,8 @@ logger = get_logger(__name__)
 
 
 class ScreeningCache(Protocol):
+    """筛选结果缓存协议，定义缓存的读写接口。"""
+
     async def get(self, key: str) -> Optional[ScreeningResult]:
         raise NotImplementedError
 
@@ -18,6 +27,7 @@ class ScreeningCache(Protocol):
 
 
 class NullScreeningCache:
+    """空缓存实现（不使用缓存时回退到此实现）。"""
     async def get(self, key: str) -> Optional[ScreeningResult]:
         return None
 
@@ -26,6 +36,12 @@ class NullScreeningCache:
 
 
 class ScreeningService:
+    """简历初筛服务核心类。
+
+    根据 JD 和简历执行多维度规则匹配筛选，规则按优先级降序排列。
+    必选规则（required=True）全部通过才算筛选通过，可选规则影响置信度评分。
+    """
+
     def __init__(
         self,
         rules: Optional[list[ScreeningRule]] = None,
@@ -91,6 +107,7 @@ class ScreeningService:
                     extra={"rule_id": result.rule_id, "rule_name": result.rule_name, "reason": result.reason},
                 )
 
+        # 所有必选规则均通过才算筛选通过，未匹配到的必选规则视为未通过
         required_rules = [r for r in self._rules if r.required]
         passed = all(
             next(
@@ -124,14 +141,14 @@ class ScreeningService:
         return result
 
     def _find_rule(self, rule_id: str) -> Optional[ScreeningRule]:
-        """根据规则ID查找规则。"""
+        """根据规则 ID 在规则列表中查找对应的规则对象。"""
         for rule in self._rules:
             if rule.rule_id == rule_id:
                 return rule
         return None
 
     def _calculate_confidence(self, rule_results: list[RuleMatch]) -> float:
-        """计算筛选置信度。"""
+        """计算筛选置信度，取所有通过规则的评分的平均值。"""
         if not rule_results:
             return 0.0
 
@@ -143,7 +160,7 @@ class ScreeningService:
         return round(total_confidence, 3)
 
     def add_rule(self, rule: ScreeningRule) -> None:
-        """添加筛选规则。"""
+        """动态添加筛选规则，添加后按优先级重新排序。"""
         self._rules.append(rule)
         self._rules.sort(key=lambda r: r.priority, reverse=True)
         logger.info(
@@ -152,7 +169,7 @@ class ScreeningService:
         )
 
     def remove_rule(self, rule_id: str) -> bool:
-        """移除筛选规则。"""
+        """根据规则 ID 移除筛选规则，返回是否成功移除。"""
         original_len = len(self._rules)
         self._rules = [r for r in self._rules if r.rule_id != rule_id]
         removed = len(self._rules) < original_len
@@ -161,13 +178,13 @@ class ScreeningService:
         return removed
 
     def get_rules(self) -> list[ScreeningRule]:
-        """获取所有筛选规则。"""
+        """获取当前配置的所有筛选规则列表（副本）。"""
         return list(self._rules)
 
     def screen_batch(
         self, jd: JDParseResult, resumes: list[ResumeParseResult]
     ) -> list[ScreeningResult]:
-        """批量筛选多个简历。"""
+        """批量筛选多个候选人简历，适用于大批量招聘场景。"""
         logger.info("screening_batch_start", extra={"resumes_count": len(resumes)})
         results = [self.screen(jd, resume) for resume in resumes]
         logger.info("screening_batch_complete", extra={"resumes_count": len(resumes)})

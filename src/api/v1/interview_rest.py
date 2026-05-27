@@ -1,3 +1,14 @@
+"""面试会话管理 REST 接口
+
+提供的端点：
+- POST /interview/session                      : 创建新的面试会话（基于 JD 和简历）
+- GET  /interview/session/{session_id}          : 获取指定会话的详细信息
+- POST /interview/session/{session_id}/next-question : 获取下一道面试题目
+- POST /interview/session/{session_id}/answer   : 提交答案
+- POST /interview/session/{session_id}/follow-up : 请求追问
+- POST /interview/session/{session_id}/complete : 结束面试会话
+"""
+
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import JSONResponse
 
@@ -11,11 +22,14 @@ from src.schemas.resume import ResumeParseResult
 from src.services.interview import FollowUpService
 
 router = APIRouter(prefix="/interview", tags=["interview"])
+
+# 全局追问服务实例，管理所有面试会话
 service = FollowUpService()
 
 
 @router.post("/session")
 async def create_interview_session(jd: JDParseResult, resume: ResumeParseResult) -> InterviewSessionInfo:
+    """创建新的面试会话，绑定 JD 和简历"""
     session = service.create_session(jd, resume)
     return InterviewSessionInfo(
         session_id=session.session_id,
@@ -26,6 +40,7 @@ async def create_interview_session(jd: JDParseResult, resume: ResumeParseResult)
 
 @router.get("/session/{session_id}")
 async def get_session_info(session_id: str) -> InterviewSessionInfo:
+    """获取指定会话的当前状态信息（进度、难度、是否完成等）"""
     session = service.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -42,6 +57,7 @@ async def get_session_info(session_id: str) -> InterviewSessionInfo:
 
 @router.post("/session/{session_id}/next-question")
 async def get_next_question(session_id: str):
+    """获取下一道面试题目（题目由系统根据之前表现动态调整）"""
     session = service.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -58,6 +74,7 @@ async def get_next_question(session_id: str):
 
 @router.post("/session/{session_id}/answer")
 async def submit_answer(session_id: str, request: FollowUpRequest):
+    """提交当前题目的答案，系统会评估回答质量"""
     session = service.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -73,6 +90,7 @@ async def submit_answer(session_id: str, request: FollowUpRequest):
 
 @router.post("/session/{session_id}/follow-up")
 async def request_follow_up(session_id: str, request: FollowUpRequest):
+    """根据上一轮回答请求追问，深入考察候选人"""
     session = service.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -90,6 +108,7 @@ async def request_follow_up(session_id: str, request: FollowUpRequest):
 
 @router.post("/session/{session_id}/complete")
 async def complete_session(session_id: str) -> InterviewSessionInfo:
+    """结束当前面试会话"""
     session = service.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")

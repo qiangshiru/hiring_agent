@@ -1,3 +1,9 @@
+"""职位描述（JD）解析服务。
+
+负责将自然语言的 JD 文本解析为结构化的职位数据，是整个招聘流程的入口服务。
+支持规则引擎解析、LLM 解析和混合模式（规则 + LLM 融合），并提供基于 Redis 的缓存机制。
+"""
+
 import asyncio
 import hashlib
 from collections.abc import Mapping
@@ -21,6 +27,8 @@ T = TypeVar("T")
 
 
 class LLMClient(Protocol):
+    """LLM 客户端协议，定义与大语言模型交互的接口。"""
+
     async def complete_json(
         self,
         *,
@@ -32,6 +40,8 @@ class LLMClient(Protocol):
 
 
 class JDParseCache(Protocol):
+    """JD 解析结果缓存协议，定义缓存的读写接口。"""
+
     async def get(self, key: str) -> Optional[JDParseResult]:
         raise NotImplementedError
 
@@ -40,6 +50,7 @@ class JDParseCache(Protocol):
 
 
 class NullJDParseCache:
+    """空缓存实现（不使用缓存时回退到此实现）。"""
     async def get(self, key: str) -> Optional[JDParseResult]:
         return None
 
@@ -48,6 +59,8 @@ class NullJDParseCache:
 
 
 class RedisJDParseCache:
+    """基于 Redis 的 JD 解析结果缓存实现。"""
+
     def __init__(self, redis_url: str) -> None:
         self._redis = Redis.from_url(redis_url, decode_responses=True)
 
@@ -75,6 +88,14 @@ class RedisJDParseCache:
 
 
 class JDParserService:
+    """JD 解析服务核心类。
+
+    支持三种解析模式：
+    - rule: 纯规则引擎解析，基于正则和关键词匹配
+    - llm: 纯 LLM 解析，调用大模型提取结构化字段
+    - hybrid: 混合模式，用 LLM 结果补充规则引擎未能确定的字段
+    """
+
     def __init__(
         self,
         *,
@@ -120,6 +141,7 @@ class JDParserService:
         *,
         use_cache: bool = True,
     ) -> tuple[JDParseResult, bool]:
+        """异步解析并返回缓存命中状态，便于调用方区分缓存命中和实时解析的结果。"""
         normalized_text = text.strip()
         if not normalized_text:
             raise ApplicationError("JD text cannot be empty", status_code=400)
@@ -147,7 +169,7 @@ class JDParserService:
         return result, False
 
     def _parse_with_rules(self, text: str) -> JDParseResult:
-        """使用规则引擎解析 JD。"""
+        """使用规则引擎解析 JD，通过配置的提取器逐字段提取学历、经验、技术栈等。"""
         context = ExtractionContext(text=text, settings=self._settings)
         return JDParseResult(
             学历=self._extract("education", context),
@@ -159,7 +181,11 @@ class JDParserService:
         )
 
     async def _merge_llm_result(self, text: str, rule_result: JDParseResult) -> JDParseResult:
-        """合并规则解析结果与 LLM 解析结果。"""
+        """合并规则解析结果与 LLM 解析结果。
+
+        hybrid 模式下，LLM 解析出有意义的字段（must/bonus 非空）会覆盖规则引擎的字段，
+        否则保留规则引擎的结果作为兜底。
+        """
         if self._llm_client is None:
             if self._settings.jd_parser_mode == "llm":
                 raise ApplicationError("LLM client is not configured", status_code=503)
@@ -181,7 +207,7 @@ class JDParserService:
         )
 
     async def _call_llm_with_retry(self, text: str) -> JDParseResult:
-        """调用 LLM 并处理重试逻辑。"""
+        """调用 LLM 并处理重试逻辑，按配置的最大重试次数进行重试。"""
         prompt = build_jd_parser_prompt(text)
         last_error: Optional[Exception] = None
         
@@ -218,11 +244,11 @@ class JDParserService:
         )
 
     def _extract(self, name: str, context: ExtractionContext) -> T:
-        """执行字段提取。"""
+        """根据字段名称获取对应提取器并执行字段提取。"""
         extractor = self._extractors[name]
         return cast(T, extractor.extract(context))
 
     def _build_cache_key(self, text: str) -> str:
-        """构建缓存键。"""
+        """构建缓存键，基于 JD 文本内容和解析模式的 SHA-256 哈希值。"""
         digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
         return f"jd_parser:{self._settings.jd_parser_mode}:{digest}"

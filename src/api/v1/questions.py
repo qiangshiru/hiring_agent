@@ -1,3 +1,11 @@
+"""面试题目生成相关接口
+
+提供的端点：
+- POST /questions/generate        : 根据 JD 和简历自动生成全套面试题目
+- POST /questions/generate/by-type : 按指定类型（技术/行为/项目等）生成题目
+- POST /questions/config          : 获取或更新题目生成配置（题型、难度分布等）
+"""
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from src.schemas.jd import JDParseResult
@@ -13,6 +21,7 @@ router = APIRouter(prefix="/questions", tags=["question-generator"])
 
 
 def get_question_generator_service() -> QuestionGeneratorService:
+    """依赖注入：获取题目生成服务实例"""
     return QuestionGeneratorService()
 
 
@@ -23,6 +32,7 @@ async def generate_questions(
     config: QuestionGenerationConfig | None = None,
     service: QuestionGeneratorService = Depends(get_question_generator_service),
 ) -> QuestionGenerationResult:
+    """根据 JD 和简历自动生成全套面试题目，可选传入自定义配置"""
     try:
         if config:
             service.set_config(config)
@@ -39,6 +49,7 @@ async def generate_by_type(
     count: int = 3,
     service: QuestionGeneratorService = Depends(get_question_generator_service),
 ) -> list:
+    """按指定类型和数量生成面试题目"""
     try:
         return service.generate_by_type(question_type, jd, resume, count)
     except Exception as exc:
@@ -50,6 +61,7 @@ async def get_config(
     config: QuestionGenerationConfig | None = None,
     service: QuestionGeneratorService = Depends(get_question_generator_service),
 ) -> QuestionGenerationConfig:
+    """获取当前生成配置，如果传入新配置则先更新再返回"""
     if config:
         service.set_config(config)
     return service.get_config()
