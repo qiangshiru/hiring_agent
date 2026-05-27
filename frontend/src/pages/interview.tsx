@@ -125,11 +125,11 @@ const InterviewPage: React.FC = () => {
                 </div>
               )}
 
-              {currentQuestion.scoring_points && currentQuestion.scoring_points.length > 0 && (
+              {currentQuestion.scoring_guide && currentQuestion.scoring_guide.length > 0 && (
                 <div className="mt-6 p-4 bg-blue-50 rounded-lg">
                   <h3 className="font-medium text-blue-900 mb-2">评分要点</h3>
                   <ul className="flex flex-wrap gap-2">
-                    {currentQuestion.scoring_points.map((point, idx) => (
+                    {currentQuestion.scoring_guide.map((point, idx) => (
                       <li key={idx} className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm">
                         {point}
                       </li>

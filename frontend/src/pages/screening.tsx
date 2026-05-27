@@ -1,35 +1,61 @@
 import React from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { screeningApi } from '@/services/api';
+import { screeningApi, scoringApi } from '@/services/api';
 import { useAppStore } from '@/store/appStore';
-import { ScreeningResult } from '@/types';
+import { ScreeningResult, ScoringResult } from '@/types';
 
 export const ScreeningPage: React.FC = () => {
   const { jd, resume, setScreeningResult } = useAppStore();
 
-  const { mutate, isPending: isLoading, data, error } = useMutation({
+  const {
+    mutate: screenMutate,
+    isPending: screenLoading,
+    data: screenResult,
+    error: screenError,
+  } = useMutation({
     mutationFn: () => screeningApi.screen(jd!, resume!),
     onSuccess: (result: ScreeningResult) => {
       setScreeningResult(result);
     },
   });
 
+  const {
+    mutate: scoreMutate,
+    isPending: scoreLoading,
+    data: scoreResult,
+    error: scoreError,
+  } = useMutation({
+    mutationFn: () => scoringApi.score(jd!, resume!),
+  });
+
   const handleScreen = () => {
     if (jd && resume) {
-      mutate();
+      screenMutate();
+      scoreMutate();
     }
   };
 
   const getScoreColor = (score: number) => {
-    if (score >= 0.8) return 'text-green-600';
-    if (score >= 0.6) return 'text-yellow-600';
+    if (score >= 80) return 'text-green-600';
+    if (score >= 60) return 'text-yellow-600';
     return 'text-red-600';
   };
 
   const getScoreBgColor = (score: number) => {
-    if (score >= 0.8) return 'bg-green-200';
-    if (score >= 0.6) return 'bg-yellow-200';
+    if (score >= 80) return 'bg-green-200';
+    if (score >= 60) return 'bg-yellow-200';
     return 'bg-red-200';
+  };
+
+  const getDimensionLabel = (name: string) => {
+    const labels: Record<string, string> = {
+      tech_match: '技术匹配',
+      ai_depth: 'AI 深度',
+      engineering: '工程能力',
+      education: '教育背景',
+      stability: '稳定性',
+    };
+    return labels[name] || name;
   };
 
   return (
@@ -50,108 +76,105 @@ export const ScreeningPage: React.FC = () => {
         </div>
         <button
           onClick={handleScreen}
-          disabled={isLoading || !jd || !resume}
+          disabled={screenLoading || scoreLoading || !jd || !resume}
           className="btn-primary"
         >
-          {isLoading ? '评分中...' : '开始评分'}
+          {screenLoading || scoreLoading ? '评分中...' : '开始评分'}
         </button>
       </div>
 
-      {error && (
+      {(screenError || scoreError) && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-          <p className="text-red-700">评分失败: {error.message}</p>
+          <p className="text-red-700">评分失败: {(screenError || scoreError)?.message}</p>
         </div>
       )}
 
-      {data && (
-        <div className="card">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">评分结果</h2>
-          
-          <div className="flex items-center justify-between mb-6 p-4 bg-gray-50 rounded-lg">
-            <span className="font-medium text-gray-700">综合评分</span>
-            <span className={`text-3xl font-bold ${getScoreColor(data.综合评分)}`}>
-              {(data.综合评分 * 100).toFixed(1)}
+      {screenResult && (
+        <div className="card mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">筛选结果</h2>
+          <div className="flex items-center justify-between mb-4 p-4 bg-gray-50 rounded-lg">
+            <span className="font-medium text-gray-700">是否通过</span>
+            <span className={`px-3 py-1 rounded-full text-sm ${screenResult.passed ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+              {screenResult.passed ? '通过' : '未通过'}
             </span>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-500 mb-1">技术匹配度</p>
-              <p className={`text-xl font-bold ${getScoreColor(data.技术匹配度)}`}>
-                {(data.技术匹配度 * 100).toFixed(1)}
-              </p>
-              <div className="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div
-                  className={`h-full ${getScoreBgColor(data.技术匹配度)}`}
-                  style={{ width: `${data.技术匹配度 * 100}%` }}
-                />
-              </div>
-            </div>
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-500 mb-1">AI能力深度</p>
-              <p className={`text-xl font-bold ${getScoreColor(data.AI能力深度)}`}>
-                {(data.AI能力深度 * 100).toFixed(1)}
-              </p>
-              <div className="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div
-                  className={`h-full ${getScoreBgColor(data.AI能力深度)}`}
-                  style={{ width: `${data.AI能力深度 * 100}%` }}
-                />
-              </div>
-            </div>
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-500 mb-1">工程能力</p>
-              <p className={`text-xl font-bold ${getScoreColor(data.工程能力)}`}>
-                {(data.工程能力 * 100).toFixed(1)}
-              </p>
-              <div className="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div
-                  className={`h-full ${getScoreBgColor(data.工程能力)}`}
-                  style={{ width: `${data.工程能力 * 100}%` }}
-                />
-              </div>
-            </div>
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-500 mb-1">教育背景</p>
-              <p className={`text-xl font-bold ${getScoreColor(data.教育背景)}`}>
-                {(data.教育背景 * 100).toFixed(1)}
-              </p>
-              <div className="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div
-                  className={`h-full ${getScoreBgColor(data.教育背景)}`}
-                  style={{ width: `${data.教育背景 * 100}%` }}
-                />
-              </div>
-            </div>
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-500 mb-1">稳定性</p>
-              <p className={`text-xl font-bold ${getScoreColor(data.稳定性)}`}>
-                {(data.稳定性 * 100).toFixed(1)}
-              </p>
-              <div className="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div
-                  className={`h-full ${getScoreBgColor(data.稳定性)}`}
-                  style={{ width: `${data.稳定性 * 100}%` }}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="mb-4">
-            <h3 className="font-medium text-gray-700 mb-2">筛选结果</h3>
-            <span className={`px-3 py-1 rounded-full text-sm ${data.筛选结果 === '通过' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-              {data.筛选结果}
-            </span>
-          </div>
-
-          {data.理由 && data.理由.length > 0 && (
-            <div>
-              <h3 className="font-medium text-gray-700 mb-2">评分理由</h3>
+          {screenResult.matched_rules && screenResult.matched_rules.length > 0 && (
+            <div className="mb-3">
+              <h3 className="text-sm font-medium text-green-700 mb-1">✓ 通过项</h3>
               <ul className="list-disc list-inside space-y-1 text-gray-600">
-                {data.理由.map((reason, index) => (
-                  <li key={index}>{reason}</li>
+                {screenResult.matched_rules.map((rule, idx) => (
+                  <li key={idx}>{rule}</li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {screenResult.failed_rules && screenResult.failed_rules.length > 0 && (
+            <div className="mb-3">
+              <h3 className="text-sm font-medium text-red-700 mb-1">✗ 未通过项</h3>
+              <ul className="list-disc list-inside space-y-1 text-gray-600">
+                {screenResult.failed_rules.map((rule, idx) => (
+                  <li key={idx}>{rule}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {screenResult.reasons && screenResult.reasons.length > 0 && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 mb-1">原因</h3>
+              <ul className="list-disc list-inside space-y-1 text-gray-600">
+                {screenResult.reasons.map((reason, idx) => (
+                  <li key={idx}>{reason}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
+      {scoreResult && (
+        <div className="card">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">评分结果</h2>
+
+          <div className="flex items-center justify-between mb-6 p-4 bg-gray-50 rounded-lg">
+            <span className="font-medium text-gray-700">综合评分</span>
+            <span className={`text-3xl font-bold ${getScoreColor(scoreResult.total)}`}>
+              {scoreResult.total.toFixed(1)}
+            </span>
+          </div>
+
+          {scoreResult.recommendation && (
+            <div className="mb-4">
+              <h3 className="font-medium text-gray-700 mb-2">建议</h3>
+              <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">
+                {scoreResult.recommendation}
+              </span>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+            {scoreResult.dimensions.map((dim) => (
+              <div key={dim.name} className="p-4 bg-gray-50 rounded-lg">
+                <p className="text-sm text-gray-500 mb-1">{getDimensionLabel(dim.name)}</p>
+                <p className={`text-xl font-bold ${getScoreColor(dim.score)}`}>
+                  {dim.score.toFixed(1)}
+                </p>
+                <div className="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full ${getScoreBgColor(dim.score)}`}
+                    style={{ width: `${Math.min(dim.score, 100)}%` }}
+                  />
+                </div>
+                <p className="text-xs text-gray-400 mt-1">权重: {(dim.weight * 100).toFixed(0)}%</p>
+              </div>
+            ))}
+          </div>
+
+          {scoreResult.summary && (
+            <div className="p-3 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-600">{scoreResult.summary}</p>
             </div>
           )}
         </div>

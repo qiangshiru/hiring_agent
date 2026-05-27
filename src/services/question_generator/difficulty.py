@@ -42,11 +42,12 @@ class SeniorityDifficultyStrategy:
     def _assess_seniority(self, jd: JDParseResult, resume: ResumeParseResult) -> int:
         score = 0
 
-        if jd.工作经验.min_years >= 5:
+        min_years = jd.工作经验.min_years or 0
+        if min_years >= 5:
             score += 3
-        elif jd.工作经验.min_years >= 3:
+        elif min_years >= 3:
             score += 2
-        elif jd.工作经验.min_years >= 2:
+        elif min_years >= 2:
             score += 1
 
         total_experience = self._calculate_experience_years(resume)

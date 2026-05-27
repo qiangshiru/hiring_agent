@@ -3,6 +3,8 @@ import {
   JDParseResult,
   ResumeParseResult,
   ScreeningResult,
+  ScoringResult,
+  DimensionWeights,
   QuestionGenerationResult,
   EvaluationResult,
   RiskDetectionResult,
@@ -19,20 +21,31 @@ const api = axios.create({
 export const jdApi = {
   parse: async (text: string): Promise<JDParseResult> => {
     const response = await api.post('/jd/parse', { text });
-    return response.data;
+    return response.data.data;
   },
 };
 
 export const resumeApi = {
   parse: async (text: string): Promise<ResumeParseResult> => {
     const response = await api.post('/resume/parse', { text });
-    return response.data;
+    return response.data.data;
   },
 };
 
 export const screeningApi = {
   screen: async (jd: JDParseResult, resume: ResumeParseResult): Promise<ScreeningResult> => {
     const response = await api.post('/screening/screen', { jd, resume });
+    return response.data;
+  },
+};
+
+export const scoringApi = {
+  score: async (jd: JDParseResult, resume: ResumeParseResult): Promise<ScoringResult> => {
+    const response = await api.post('/scoring/score', { jd, resume });
+    return response.data;
+  },
+  scoreWithWeights: async (jd: JDParseResult, resume: ResumeParseResult, weights: DimensionWeights): Promise<ScoringResult> => {
+    const response = await api.post('/scoring/score/weights', { jd, resume, weights });
     return response.data;
   },
 };
@@ -50,7 +63,7 @@ export const evaluationApi = {
     return response.data;
   },
   detectRisks: async (interviewRecord: unknown, resume?: ResumeParseResult): Promise<RiskDetectionResult> => {
-    const response = await api.post('/evaluation/detect-risks', { interviewRecord, resume });
+    const response = await api.post('/evaluation/detect-risks', { interview_record: interviewRecord, resume });
     return response.data;
   },
 };

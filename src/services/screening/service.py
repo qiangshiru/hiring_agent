@@ -57,8 +57,7 @@ class ScreeningService:
 
         logger.info(
             "screening_start",
-            candidate_name=resume.姓名 or "unknown",
-            rules_count=len(self._rules),
+            extra={"candidate_name": resume.姓名 or "unknown", "rules_count": len(self._rules)},
         )
 
         rule_results: list[RuleMatch] = []
@@ -81,9 +80,7 @@ class ScreeningService:
                 matched_rules.append(result.rule_name)
                 logger.debug(
                     "rule_passed",
-                    rule_id=result.rule_id,
-                    rule_name=result.rule_name,
-                    score=result.score,
+                    extra={"rule_id": result.rule_id, "rule_name": result.rule_name, "score": result.score},
                 )
             else:
                 failed_rules.append(result.rule_name)
@@ -91,9 +88,7 @@ class ScreeningService:
                     reasons.append(result.reason)
                 logger.debug(
                     "rule_failed",
-                    rule_id=result.rule_id,
-                    rule_name=result.rule_name,
-                    reason=result.reason,
+                    extra={"rule_id": result.rule_id, "rule_name": result.rule_name, "reason": result.reason},
                 )
 
         required_rules = [r for r in self._rules if r.required]
@@ -117,11 +112,13 @@ class ScreeningService:
 
         logger.info(
             "screening_complete",
-            candidate_name=resume.姓名 or "unknown",
-            passed=passed,
-            confidence=confidence,
-            matched_rules_count=len(matched_rules),
-            failed_rules_count=len(failed_rules),
+            extra={
+                "candidate_name": resume.姓名 or "unknown",
+                "passed": passed,
+                "confidence": confidence,
+                "matched_rules_count": len(matched_rules),
+                "failed_rules_count": len(failed_rules),
+            },
         )
 
         return result
@@ -151,9 +148,7 @@ class ScreeningService:
         self._rules.sort(key=lambda r: r.priority, reverse=True)
         logger.info(
             "rule_added",
-            rule_id=rule.rule_id,
-            rule_name=rule.rule_name,
-            priority=rule.priority,
+            extra={"rule_id": rule.rule_id, "rule_name": rule.rule_name, "priority": rule.priority},
         )
 
     def remove_rule(self, rule_id: str) -> bool:

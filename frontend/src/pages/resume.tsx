@@ -127,10 +127,11 @@ export const ResumePage: React.FC = () => {
               <div className="flex flex-wrap gap-2">
                 {data.技能.map((skill) => (
                   <span
-                    key={skill}
+                    key={skill.名称}
                     className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm"
+                    title={skill.类别 ? `${skill.类别} · ${skill.熟练度 || ''}` : ''}
                   >
-                    {skill}
+                    {skill.名称}
                   </span>
                 ))}
               </div>

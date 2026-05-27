@@ -85,9 +85,9 @@ export const JDPage: React.FC = () => {
           {data.技术栈 && (
             <div>
               <h3 className="font-medium text-gray-700 mb-2">技术栈要求</h3>
-              {data.技术栈.必须 && data.技术栈.必须.length > 0 && (
+              {data.技术栈.must && data.技术栈.must.length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-2">
-                  {data.技术栈.必须.map((tech) => (
+                  {data.技术栈.must.map((tech) => (
                     <span
                       key={tech}
                       className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm"
@@ -97,9 +97,9 @@ export const JDPage: React.FC = () => {
                   ))}
                 </div>
               )}
-              {data.技术栈.加分 && data.技术栈.加分.length > 0 && (
+              {data.技术栈.bonus && data.技术栈.bonus.length > 0 && (
                 <div className="flex flex-wrap gap-2">
-                  {data.技术栈.加分.map((tech) => (
+                  {data.技术栈.bonus.map((tech) => (
                     <span
                       key={tech}
                       className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm"

@@ -8,11 +8,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from src.api.v1.jd import router as jd_router
-from src.api.v1.resume import router as resume_router
-from src.api.v1.questions import router as questions_router
-from src.api.v1.multi_agent import router as multi_agent_router
+from src.api.v1.evaluation import router as evaluation_router
+from src.api.v1.interview_rest import router as interview_rest_router
 from src.api.v1.interview_ws import router as interview_ws_router
+from src.api.v1.jd import router as jd_router
+from src.api.v1.multi_agent import router as multi_agent_router
+from src.api.v1.questions import router as questions_router
+from src.api.v1.resume import router as resume_router
+from src.api.v1.scoring import router as scoring_router
+from src.api.v1.screening import router as screening_router
 from src.config import Settings, get_settings
 from src.core.exceptions import (
     ApplicationError,
@@ -120,7 +124,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     api_router.include_router(resume_router)
     api_router.include_router(questions_router)
     api_router.include_router(multi_agent_router)
+    api_router.include_router(interview_rest_router)
     api_router.include_router(interview_ws_router)
+    api_router.include_router(screening_router)
+    api_router.include_router(scoring_router)
+    api_router.include_router(evaluation_router)
     app.include_router(api_router)
 
     @app.get("/", include_in_schema=False)

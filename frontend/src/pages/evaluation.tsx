@@ -1,32 +1,97 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { evaluationApi } from '@/services/api';
 import { useAppStore } from '@/store/appStore';
 import { EvaluationResult, RiskDetectionResult, ResumeParseResult } from '@/types';
 
+const buildInterviewRecord = () => ({
+  session_id: `session-${Date.now()}`,
+  jd_id: `jd-${Date.now()}`,
+  resume_id: `resume-${Date.now()}`,
+  turns: [
+    {
+      turn_id: 'turn-1',
+      question: 'Python的GIL是什么？它在多线程场景下有什么影响？',
+      question_type: 'foundation',
+      answer: 'GIL是全局解释器锁，限制了Python多线程的并行执行能力。在CPU密集型任务中，多线程无法利用多核优势，但在IO密集型任务中影响较小。可以通过多进程或使用C扩展来绕过GIL限制。',
+      answer_quality: 'good',
+      confidence: 0.8,
+      follow_up_questions: [] as string[],
+    },
+    {
+      turn_id: 'turn-2',
+      question: '请描述你设计RAG系统时的架构决策和遇到的挑战？',
+      question_type: 'system_design',
+      answer: '我们采用了混合检索策略，结合了向量检索和关键词检索。向量检索使用Milvus，关键词检索使用Elasticsearch。主要挑战是检索结果的重排序和上下文窗口的管理。我们实现了两阶段重排序：粗排用BM25，精排用cross-encoder。',
+      answer_quality: 'excellent',
+      confidence: 0.9,
+      follow_up_questions: [] as string[],
+    },
+  ],
+  start_time: new Date().toISOString(),
+  end_time: new Date().toISOString(),
+});
+
 export const EvaluationPage: React.FC = () => {
   const { resume, setEvaluation, setRisks } = useAppStore();
+  const [customQuestion, setCustomQuestion] = useState('');
+  const [customAnswer, setCustomAnswer] = useState('');
 
-  const { mutate: evaluateMutate, isPending: evaluateLoading, data: evaluation, error: evaluateError } = useMutation({
+  const {
+    mutate: evaluateMutate,
+    isPending: evaluateLoading,
+    data: evaluation,
+    error: evaluateError,
+  } = useMutation({
     mutationFn: evaluationApi.evaluate,
     onSuccess: (result: EvaluationResult) => {
       setEvaluation(result);
     },
   });
 
-  const { mutate: risksMutate, isPending: risksLoading, data: risks, error: risksError } = useMutation({
-    mutationFn: () => evaluationApi.detectRisks({}, resume as ResumeParseResult),
+  const {
+    mutate: risksMutate,
+    isPending: risksLoading,
+    data: risks,
+    error: risksError,
+  } = useMutation({
+    mutationFn: (record: Record<string, unknown>) =>
+      evaluationApi.detectRisks(record, resume as ResumeParseResult),
     onSuccess: (result: RiskDetectionResult) => {
       setRisks(result);
     },
   });
 
   const handleEvaluate = () => {
-    evaluateMutate({});
+    const record = buildInterviewRecord();
+    if (customQuestion && customAnswer) {
+      record.turns.push({
+        turn_id: 'turn-custom',
+        question: customQuestion,
+        question_type: 'scenario',
+        answer: customAnswer,
+        answer_quality: 'fair',
+        confidence: 0.7,
+        follow_up_questions: [],
+      });
+    }
+    evaluateMutate(record);
   };
 
   const handleDetectRisks = () => {
-    risksMutate();
+    const record = buildInterviewRecord();
+    if (customQuestion && customAnswer) {
+      record.turns.push({
+        turn_id: 'turn-custom',
+        question: customQuestion,
+        question_type: 'scenario',
+        answer: customAnswer,
+        answer_quality: 'fair',
+        confidence: 0.7,
+        follow_up_questions: [],
+      });
+    }
+    risksMutate(record);
   };
 
   const getLevelColor = (level: string) => {
@@ -51,6 +116,33 @@ export const EvaluationPage: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <h1 className="text-2xl font-bold text-gray-900 mb-6">评价分析</h1>
+
+      <div className="card mb-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">面试数据</h2>
+        <p className="text-sm text-gray-500 mb-4">
+          系统已预设示例面试问答数据。你也可以添加自定义问答来进行评价分析。
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">面试问题</label>
+            <textarea
+              className="input-field h-24"
+              value={customQuestion}
+              onChange={(e) => setCustomQuestion(e.target.value)}
+              placeholder="可选：输入自定义面试问题"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">候选人回答</label>
+            <textarea
+              className="input-field h-24"
+              value={customAnswer}
+              onChange={(e) => setCustomAnswer(e.target.value)}
+              placeholder="可选：输入候选人回答"
+            />
+          </div>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="card">
@@ -77,36 +169,14 @@ export const EvaluationPage: React.FC = () => {
               </div>
 
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">技术深度</span>
-                  <span className={`font-medium ${getLevelColor(evaluation.技术深度.level)}`}>
-                    {evaluation.技术深度.level} ({evaluation.技术深度.score.toFixed(1)})
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">沟通表达</span>
-                  <span className={`font-medium ${getLevelColor(evaluation.沟通表达.level)}`}>
-                    {evaluation.沟通表达.level} ({evaluation.沟通表达.score.toFixed(1)})
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">真实性</span>
-                  <span className={`font-medium ${getLevelColor(evaluation.真实性.level)}`}>
-                    {evaluation.真实性.level} ({evaluation.真实性.score.toFixed(1)})
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">系统设计</span>
-                  <span className={`font-medium ${getLevelColor(evaluation.系统设计.level)}`}>
-                    {evaluation.系统设计.level} ({evaluation.系统设计.score.toFixed(1)})
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">工程能力</span>
-                  <span className={`font-medium ${getLevelColor(evaluation.工程能力.level)}`}>
-                    {evaluation.工程能力.level} ({evaluation.工程能力.score.toFixed(1)})
-                  </span>
-                </div>
+                {(['技术深度', '沟通表达', '真实性', '系统设计', '工程能力'] as const).map((dim) => (
+                  <div key={dim} className="flex items-center justify-between">
+                    <span className="text-gray-600">{dim}</span>
+                    <span className={`font-medium ${getLevelColor(evaluation[dim].level)}`}>
+                      {evaluation[dim].level} ({evaluation[dim].score.toFixed(1)})
+                    </span>
+                  </div>
+                ))}
               </div>
 
               {evaluation.优势 && evaluation.优势.length > 0 && (

@@ -70,8 +70,7 @@ class QuestionGeneratorService:
 
         logger.info(
             "question_generation_start",
-            candidate_name=resume.姓名 or "unknown",
-            total_questions=self._config.total_questions,
+            extra={"candidate_name": resume.姓名 or "unknown", "total_questions": self._config.total_questions},
         )
 
         questions: list[Question] = []
@@ -96,9 +95,7 @@ class QuestionGeneratorService:
 
             logger.debug(
                 "questions_generated",
-                question_type=question_type.value,
-                count=len(generated),
-                difficulty=difficulty.value,
+                extra={"question_type": question_type.value, "count": len(generated), "difficulty": difficulty.value},
             )
 
         self._adjust_difficulty_distribution(questions, difficulty_counts)
@@ -112,9 +109,7 @@ class QuestionGeneratorService:
 
         logger.info(
             "question_generation_complete",
-            candidate_name=resume.姓名 or "unknown",
-            total_generated=len(questions),
-            types_covered=len(type_counts),
+            extra={"candidate_name": resume.姓名 or "unknown", "total_generated": len(questions), "types_covered": len(type_counts)},
         )
 
         return result
@@ -184,7 +179,7 @@ class QuestionGeneratorService:
         if not generator:
             logger.warning(
                 "unknown_question_type",
-                question_type=question_type.value,
+                extra={"question_type": question_type.value},
             )
             return []
 
@@ -197,8 +192,7 @@ class QuestionGeneratorService:
 
         logger.info(
             "questions_generated_by_type",
-            question_type=question_type.value,
-            count=len(questions),
+            extra={"question_type": question_type.value, "count": len(questions)},
         )
 
         return questions

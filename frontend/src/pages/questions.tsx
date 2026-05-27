@@ -140,11 +140,11 @@ export const QuestionsPage: React.FC = () => {
                       </span>
                     </div>
                   </div>
-                  {question.scoring_points && question.scoring_points.length > 0 && (
+                  {question.scoring_guide && question.scoring_guide.length > 0 && (
                     <div className="mt-2">
                       <p className="text-sm text-gray-500 mb-1">评分要点:</p>
                       <ul className="flex flex-wrap gap-2">
-                        {question.scoring_points.map((point, idx) => (
+                        {question.scoring_guide.map((point, idx) => (
                           <li key={idx} className="px-2 py-1 bg-gray-200 rounded text-xs text-gray-700">
                             {point}
                           </li>

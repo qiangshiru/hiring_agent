@@ -9,13 +9,14 @@ services:
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=INFO
       - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql+asyncpg://hiring_agent:hiring_agent@postgres:5432/hiring_agent
     env_file:
       - .env
     volumes:
       - ./src:/app/src
       - ./tests:/app/tests
     healthcheck:
-      test: ["CMD", "python3", "-c", "import http.client; http.client.HTTPConnection('localhost', 8000).request('GET', '/health'); assert http.client.HTTPConnection('localhost', 8000).getresponse().status == 200"]
+      test: ["CMD", "python3", "-c", "import http.client; c = http.client.HTTPConnection('localhost', 8000); c.request('GET', '/api/v1/health'); assert c.getresponse().status == 200"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -24,6 +25,8 @@ services:
     depends_on:
       redis:
         condition: service_started
+      postgres:
+        condition: service_healthy
 
   frontend:
     build:
@@ -49,9 +52,28 @@ services:
     networks:
       - hiring-network
 
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: hiring_agent
+      POSTGRES_PASSWORD: hiring_agent
+      POSTGRES_DB: hiring_agent
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "hiring_agent", "-d", "hiring_agent"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hiring-network
+
 networks:
   hiring-network:
     driver: bridge
 
 volumes:
   redis_data:
+  postgres_data:
